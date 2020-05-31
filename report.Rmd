@@ -1,0 +1,126 @@
+---
+title: "Regression Models"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+We load in the data set, perform the necessary data transformations by factoring the necessary variables and look at the data, in the following section.
+
+To make the code visible
+```{r}
+echo=TRUE
+```
+
+To set up the environment
+```{r}
+rm(list = ls())
+library(ggplot2)
+```
+
+DATA PREPARATION:
+
+Load the dataset and perform necessary data transformations by factoring the necessay variables
+
+```{r}
+data(mtcars)
+mtcars$cyl <- factor(mtcars$cyl)
+mtcars$vs <- factor(mtcars$vs)
+mtcars$gear <- factor(mtcars$gear)
+mtcars$carb <- factor(mtcars$carb)
+mtcars$am <- factor(mtcars$am,labels=c('Automatic','Manual'))
+str(mtcars)
+```
+
+EXPLORATORY DATA ANALYSIS:
+
+In order to obtain the relationship between the variables of interest, plots are drawn.Since we are interested in the effects of car transmission type on mpg, we plot boxplots of the variable mpg when am is Automatic or Manual. 
+```{r}
+boxplot(mpg ~ am, data=mtcars, col=(c("gold","darkgreen")), xlab="Transmission (0 = Automatic, 1 = Manual)", ylab="Miles per Gallon", main="Boxplot of MPG vs. Transmission")
+```
+The above plot clearly depicts an increase in the mpg when the transmission is Manual.
+```{r}
+boxplot(mtcars$mpg ~ mtcars$cyl, data=mtcars, outpch = 19, col=(c("blue", "green", "yellow")), ylab="miles per gallon", xlab="number of cylinders", main="Mileage by Cylinder")
+```
+
+From the plot below, we notice that variables like cyl, disp, hp, drat, wt, vs and am seem to have some strong correlation with mpg.
+```{r}
+pairs(mpg ~ ., data = mtcars)
+```
+
+MODEL BUILDING AND SELECTION:
+
+As mentioned, based on the pairs plot where several variables has high correlation with mpg, We build an initial model with all the variables as predictors, and perfom stepwise model selection to select significant predictors for the final model which is the best model. This is taken care by the step method which runs lm multiple times to build multiple regression models and select the best variables from them using both forward selection and backward elimination methods by the AIC algorithm. The code is depicted in the section below, you can run it to see the detailed computations if required.
+
+```{r}
+init_model <- lm(mpg ~ ., data = mtcars)
+best_model <- step(init_model, direction = "both")
+```
+
+The best model obtained from the above computations consists of the variables, cyl, wt and hp as confounders and am as the independent variable. Summary of the model are depicted below
+
+```{r}
+summary(best_model)
+```
+
+From the above, we observe that the “Adjusted R^2 value”" is 0.84 which is the maximum obtained considering all combinations of variables. Thus, we can conclude that more than 84% of the variability is explained by the above model.
+
+Next, we use anova to compare aganist our base model, that only uses am as a predictor variable, and the best model that was found through performing stepwise selection.
+
+```{r}
+base_model <- lm(mpg ~ am, data = mtcars)
+anova(base_model, best_model)
+```
+As p-value is significant, hence we reject the null hypothesis that the variables cyl, hp and wt do not contribute to the accuracy of the model.
+
+T-TEST:
+
+T-test is performed assuming that the transmission data has a normal distribution. It can be inferred from the results that there is a significant difference between automatic and manual transmission
+
+```{r}
+t.test(mpg ~ am, data = mtcars)
+```
+
+RESIDUAL AND DIAGNOSTICS:
+
+The residual plots of our model are examined and diagnostics are computed to identify the outliers
+
+```{r}
+par(mfrow = c(2, 2))
+plot(best_model)
+```
+
+From the above plots, it can be observed that:
+
+1.The points in the Residuals vs. Fitted plot seem to be randomly scattered on the plot and verify the independence condition.
+2.The Normal Q-Q plot consists of the points which mostly fall on the line indicating that the residuals are normally distributed.
+3.The Scale-Location plot consists of points scattered in a constant band pattern, indicating constant variance.
+4.There are some distinct points of interest (outliers or leverage points) in the top right of the plots.
+5.We now compute some regression diagnostics of our model to find out these interesting leverage points as shown in the following section. We compute top three points in each case of influence measures.
+
+```{r}
+leverage <- hatvalues(best_model)
+tail(sort(leverage),3)
+```
+
+```{r}
+influential <- dfbetas(best_model)
+tail(sort(influential[,6]),3)
+```
+
+Looking at the above cars, it is noticed that the analysis was correct, as the same cars are mentioned in the residual plots.
+
+T-TEST
+
+T-test is performed assuming that the transmission data has a normal distribution. It can be inferred from the results that there is a significant difference between automatic and manual transmission 
+```{r}
+t.test(mpg ~ am, data = mtcars)
+```
+
+CONCLUSION:
+
+Based on the observations from our best fit model, we can conclude the following,
+
+1.Cars with Manual transmission get more miles per gallon compared aganist cars with Automatic transmission. (1.8 adjusted by hp, cyl, and wt). mpg will decrease by 2.5 (adjusted by hp, cyl, and am) for every 1000 lb increase in wt.
+2.mpg decreases negligibly with increase of hp.
+3.If number of cylinders, cyl increases from 4 to 6 and 8, mpg will decrease by a factor of 3 and 2.2 respectively (adjusted by hp, wt, and am).
